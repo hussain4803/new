@@ -1,11 +1,11 @@
 // Firebase configuration for online data sharing
 const firebaseConfig = {
-    apiKey: "AIzaSyBxVxVxVxVxVxVxVxVxVxVxVxVxVxVxVx",
-    authDomain: "love-website-12345.firebaseapp.com",
-    projectId: "love-website-12345",
-    storageBucket: "love-website-12345.appspot.com",
-    messagingSenderId: "123456789012",
-    appId: "1:123456789012:web:abcdefghijklmnop"
+    apiKey: "AIzaSyA_SwZ_7WWgCvBy7evdn6ZbhXfsUZE_Px8",
+    authDomain: "love-website-hussein-zainab.firebaseapp.com",
+    projectId: "love-website-hussein-zainab",
+    storageBucket: "love-website-hussein-zainab.firebasestorage.app",
+    messagingSenderId: "676871231525",
+    appId: "1:676871231525:web:ab554e9106c22b3201c7cc"
 };
 
 // Initialize Firebase
