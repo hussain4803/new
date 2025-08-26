@@ -1,7 +1,21 @@
+// Firebase configuration for online data sharing
+const firebaseConfig = {
+    apiKey: "AIzaSyBxVxVxVxVxVxVxVxVxVxVxVxVxVxVxVx",
+    authDomain: "love-website-12345.firebaseapp.com",
+    projectId: "love-website-12345",
+    storageBucket: "love-website-12345.appspot.com",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:abcdefghijklmnop"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
 // Global variables
-let pictures = JSON.parse(localStorage.getItem('pictures')) || [];
-let musicList = JSON.parse(localStorage.getItem('musicList')) || [];
-let todoList = JSON.parse(localStorage.getItem('todoList')) || [];
+let pictures = [];
+let musicList = [];
+let todoList = [];
 
 // DOM elements
 const hamburger = document.querySelector('.hamburger');
@@ -16,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializePictures();
     initializeMusic();
     initializeTodo();
-    loadData();
+    loadDataFromFirebase();
 });
 
 // Navigation functionality
@@ -91,37 +105,115 @@ function updateLoveCounter() {
     document.getElementById('seconds').textContent = seconds;
 }
 
+// Firebase Data Functions
+async function loadDataFromFirebase() {
+    try {
+        // Load pictures
+        const picturesSnapshot = await db.collection('pictures').orderBy('timestamp', 'desc').get();
+        pictures = picturesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // Load music
+        const musicSnapshot = await db.collection('music').orderBy('timestamp', 'desc').get();
+        musicList = musicSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // Load todos
+        const todosSnapshot = await db.collection('todos').orderBy('timestamp', 'desc').get();
+        todoList = todosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // Render all data
+        renderPictures();
+        renderMusic();
+        renderTodo();
+        
+        // Set up real-time listeners
+        setupRealtimeListeners();
+        
+    } catch (error) {
+        console.error("Error loading data:", error);
+        // Fallback to local storage if Firebase fails
+        loadDataFromLocalStorage();
+    }
+}
+
+function setupRealtimeListeners() {
+    // Real-time pictures updates
+    db.collection('pictures').orderBy('timestamp', 'desc')
+        .onSnapshot((snapshot) => {
+            pictures = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderPictures();
+        });
+    
+    // Real-time music updates
+    db.collection('music').orderBy('timestamp', 'desc')
+        .onSnapshot((snapshot) => {
+            musicList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderMusic();
+        });
+    
+    // Real-time todos updates
+    db.collection('todos').orderBy('timestamp', 'desc')
+        .onSnapshot((snapshot) => {
+            todoList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderTodo();
+        });
+}
+
+// Fallback to local storage
+function loadDataFromLocalStorage() {
+    pictures = JSON.parse(localStorage.getItem('pictures')) || [];
+    musicList = JSON.parse(localStorage.getItem('musicList')) || [];
+    todoList = JSON.parse(localStorage.getItem('todoList')) || [];
+    
+    renderPictures();
+    renderMusic();
+    renderTodo();
+}
+
 // Pictures functionality
 function initializePictures() {
     const addPictureBtn = document.getElementById('addPictureBtn');
     const pictureInput = document.getElementById('pictureInput');
     const pictureDescription = document.getElementById('pictureDescription');
     
-    addPictureBtn.addEventListener('click', function() {
+    addPictureBtn.addEventListener('click', async function() {
         const file = pictureInput.files[0];
         const description = pictureDescription.value.trim();
         
         if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
+            try {
+                // Show loading state
+                addPictureBtn.textContent = 'جاري الإضافة...';
+                addPictureBtn.disabled = true;
+                
                 const picture = {
-                    id: Date.now(),
-                    src: e.target.result,
                     description: description,
-                    date: new Date().toLocaleDateString('ar-EG')
+                    date: new Date().toLocaleDateString('ar-EG'),
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    addedBy: 'حسين' // You can change this or make it dynamic
                 };
                 
-                pictures.push(picture);
-                savePictures();
-                renderPictures();
+                // Upload to Firebase
+                const docRef = await db.collection('pictures').add(picture);
                 
                 // Clear form
                 pictureInput.value = '';
                 pictureDescription.value = '';
-            };
-            reader.readAsDataURL(file);
+                
+                // Reset button
+                addPictureBtn.textContent = 'إضافة صورة';
+                addPictureBtn.disabled = false;
+                
+                // Show success message
+                showNotification('تم إضافة الصورة بنجاح!', 'success');
+                
+            } catch (error) {
+                console.error("Error adding picture:", error);
+                showNotification('حدث خطأ أثناء إضافة الصورة', 'error');
+                addPictureBtn.textContent = 'إضافة صورة';
+                addPictureBtn.disabled = false;
+            }
         } else {
-            alert('الرجاء اختيار صورة');
+            showNotification('الرجاء اختيار صورة', 'warning');
         }
     });
 }
@@ -134,13 +226,17 @@ function renderPictures() {
         const pictureItem = document.createElement('div');
         pictureItem.className = 'picture-item';
         pictureItem.innerHTML = `
-            <img src="${picture.src}" alt="صورة" onclick="openLightbox('${picture.src}', '${picture.description}')">
+            <div class="picture-placeholder">
+                <i class="fas fa-image"></i>
+                <p>صورة من ${picture.addedBy || 'مستخدم'}</p>
+            </div>
             <div class="picture-info">
                 <p class="picture-description">${picture.description || 'لا يوجد وصف'}</p>
                 <p class="picture-date">${picture.date}</p>
+                <p class="picture-author">أضيفت بواسطة: ${picture.addedBy || 'مستخدم'}</p>
                 <div class="picture-actions">
-                    <button class="btn-edit" onclick="editPicture(${picture.id})">تعديل</button>
-                    <button class="btn-delete" onclick="deletePicture(${picture.id})">حذف</button>
+                    <button class="btn-edit" onclick="editPicture('${picture.id}')">تعديل</button>
+                    <button class="btn-delete" onclick="deletePicture('${picture.id}')">حذف</button>
                 </div>
             </div>
         `;
@@ -148,42 +244,36 @@ function renderPictures() {
     });
 }
 
-function editPicture(id) {
+async function editPicture(id) {
     const picture = pictures.find(p => p.id === id);
     if (picture) {
         const newDescription = prompt('أدخل الوصف الجديد:', picture.description);
         if (newDescription !== null) {
-            picture.description = newDescription;
-            savePictures();
-            renderPictures();
+            try {
+                await db.collection('pictures').doc(id).update({
+                    description: newDescription,
+                    lastEdited: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                showNotification('تم تحديث الوصف بنجاح!', 'success');
+            } catch (error) {
+                console.error("Error updating picture:", error);
+                showNotification('حدث خطأ أثناء التحديث', 'error');
+            }
         }
     }
 }
 
-function deletePicture(id) {
+async function deletePicture(id) {
     if (confirm('هل أنت متأكد من حذف هذه الصورة؟')) {
-        pictures = pictures.filter(p => p.id !== id);
-        savePictures();
-        renderPictures();
+        try {
+            await db.collection('pictures').doc(id).delete();
+            showNotification('تم حذف الصورة بنجاح!', 'success');
+        } catch (error) {
+            console.error("Error deleting picture:", error);
+            showNotification('حدث خطأ أثناء الحذف', 'error');
+        }
     }
 }
-
-function openLightbox(src, description) {
-    const lightbox = document.getElementById('lightbox');
-    const lightboxImg = document.getElementById('lightbox-img');
-    const lightboxDescription = document.getElementById('lightbox-description');
-    
-    lightboxImg.src = src;
-    lightboxDescription.textContent = description || 'لا يوجد وصف';
-    lightbox.classList.add('active');
-}
-
-// Close lightbox
-document.getElementById('lightbox').addEventListener('click', function(e) {
-    if (e.target === this || e.target.classList.contains('close-lightbox')) {
-        this.classList.remove('active');
-    }
-});
 
 // Music functionality
 function initializeMusic() {
@@ -192,30 +282,45 @@ function initializeMusic() {
     const musicLink = document.getElementById('musicLink');
     const musicDescription = document.getElementById('musicDescription');
     
-    addMusicBtn.addEventListener('click', function() {
+    addMusicBtn.addEventListener('click', async function() {
         const title = musicTitle.value.trim();
         const link = musicLink.value.trim();
         const description = musicDescription.value.trim();
         
         if (title && link) {
-            const music = {
-                id: Date.now(),
-                title: title,
-                link: link,
-                description: description,
-                date: new Date().toLocaleDateString('ar-EG')
-            };
-            
-            musicList.push(music);
-            saveMusic();
-            renderMusic();
-            
-            // Clear form
-            musicTitle.value = '';
-            musicLink.value = '';
-            musicDescription.value = '';
+            try {
+                addMusicBtn.textContent = 'جاري الإضافة...';
+                addMusicBtn.disabled = true;
+                
+                const music = {
+                    title: title,
+                    link: link,
+                    description: description,
+                    date: new Date().toLocaleDateString('ar-EG'),
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    addedBy: 'حسين'
+                };
+                
+                await db.collection('music').add(music);
+                
+                // Clear form
+                musicTitle.value = '';
+                musicLink.value = '';
+                musicDescription.value = '';
+                
+                addMusicBtn.textContent = 'إضافة موسيقى';
+                addMusicBtn.disabled = false;
+                
+                showNotification('تم إضافة الموسيقى بنجاح!', 'success');
+                
+            } catch (error) {
+                console.error("Error adding music:", error);
+                showNotification('حدث خطأ أثناء إضافة الموسيقى', 'error');
+                addMusicBtn.textContent = 'إضافة موسيقى';
+                addMusicBtn.disabled = false;
+            }
         } else {
-            alert('الرجاء إدخال العنوان والرابط');
+            showNotification('الرجاء إدخال العنوان والرابط', 'warning');
         }
     });
 }
@@ -232,17 +337,22 @@ function renderMusic() {
             <p class="music-description">${music.description || 'لا يوجد وصف'}</p>
             <a href="${music.link}" target="_blank" class="music-link">استمع الآن</a>
             <p class="music-date">${music.date}</p>
-            <button class="btn-delete" onclick="deleteMusic(${music.id})">حذف</button>
+            <p class="music-author">أضيفت بواسطة: ${music.addedBy || 'مستخدم'}</p>
+            <button class="btn-delete" onclick="deleteMusic('${music.id}')">حذف</button>
         `;
         musicContainer.appendChild(musicItem);
     });
 }
 
-function deleteMusic(id) {
+async function deleteMusic(id) {
     if (confirm('هل أنت متأكد من حذف هذه الموسيقى؟')) {
-        musicList = musicList.filter(m => m.id !== id);
-        saveMusic();
-        renderMusic();
+        try {
+            await db.collection('music').doc(id).delete();
+            showNotification('تم حذف الموسيقى بنجاح!', 'success');
+        } catch (error) {
+            console.error("Error deleting music:", error);
+            showNotification('حدث خطأ أثناء الحذف', 'error');
+        }
     }
 }
 
@@ -251,24 +361,39 @@ function initializeTodo() {
     const addTodoBtn = document.getElementById('addTodoBtn');
     const todoInput = document.getElementById('todoInput');
     
-    addTodoBtn.addEventListener('click', function() {
+    addTodoBtn.addEventListener('click', async function() {
         const text = todoInput.value.trim();
         if (text) {
-            const todo = {
-                id: Date.now(),
-                text: text,
-                completed: false,
-                date: new Date().toLocaleDateString('ar-EG')
-            };
-            
-            todoList.push(todo);
-            saveTodo();
-            renderTodo();
-            
-            // Clear input
-            todoInput.value = '';
+            try {
+                addTodoBtn.textContent = 'جاري الإضافة...';
+                addTodoBtn.disabled = true;
+                
+                const todo = {
+                    text: text,
+                    completed: false,
+                    date: new Date().toLocaleDateString('ar-EG'),
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    addedBy: 'حسين'
+                };
+                
+                await db.collection('todos').add(todo);
+                
+                // Clear input
+                todoInput.value = '';
+                
+                addTodoBtn.textContent = 'إضافة';
+                addTodoBtn.disabled = false;
+                
+                showNotification('تم إضافة المهمة بنجاح!', 'success');
+                
+            } catch (error) {
+                console.error("Error adding todo:", error);
+                showNotification('حدث خطأ أثناء إضافة المهمة', 'error');
+                addTodoBtn.textContent = 'إضافة';
+                addTodoBtn.disabled = false;
+            }
         } else {
-            alert('الرجاء إدخال نص المهمة');
+            showNotification('الرجاء إدخال نص المهمة', 'warning');
         }
     });
     
@@ -289,89 +414,79 @@ function renderTodo() {
         todoItem.className = 'todo-item';
         todoItem.innerHTML = `
             <input type="checkbox" class="todo-checkbox" ${todo.completed ? 'checked' : ''} 
-                   onchange="toggleTodo(${todo.id})">
+                   onchange="toggleTodo('${todo.id}', this.checked)">
             <span class="todo-text ${todo.completed ? 'completed' : ''}">${todo.text}</span>
             <span class="todo-date">${todo.date}</span>
-            <button class="todo-delete" onclick="deleteTodo(${todo.id})">حذف</button>
+            <span class="todo-author">بواسطة: ${todo.addedBy || 'مستخدم'}</span>
+            <button class="todo-delete" onclick="deleteTodo('${todo.id}')">حذف</button>
         `;
         todoContainer.appendChild(todoItem);
     });
 }
 
-function toggleTodo(id) {
-    const todo = todoList.find(t => t.id === id);
-    if (todo) {
-        todo.completed = !todo.completed;
-        saveTodo();
-        renderTodo();
+async function toggleTodo(id, completed) {
+    try {
+        await db.collection('todos').doc(id).update({
+            completed: completed,
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        const status = completed ? 'مكتملة' : 'غير مكتملة';
+        showNotification(`تم تحديث المهمة: ${status}`, 'success');
+        
+    } catch (error) {
+        console.error("Error updating todo:", error);
+        showNotification('حدث خطأ أثناء تحديث المهمة', 'error');
     }
 }
 
-function deleteTodo(id) {
+async function deleteTodo(id) {
     if (confirm('هل أنت متأكد من حذف هذه المهمة؟')) {
-        todoList = todoList.filter(t => t.id !== id);
-        saveTodo();
-        renderTodo();
+        try {
+            await db.collection('todos').doc(id).delete();
+            showNotification('تم حذف المهمة بنجاح!', 'success');
+        } catch (error) {
+            console.error("Error deleting todo:", error);
+            showNotification('حدث خطأ أثناء الحذف', 'error');
+        }
     }
 }
 
-// Data persistence functions
-function savePictures() {
-    localStorage.setItem('pictures', JSON.stringify(pictures));
-}
-
-function saveMusic() {
-    localStorage.setItem('musicList', JSON.stringify(musicList));
-}
-
-function saveTodo() {
-    localStorage.setItem('todoList', JSON.stringify(todoList));
-}
-
-function loadData() {
-    renderPictures();
-    renderMusic();
-    renderTodo();
-}
-
-// Add some sample data for demonstration
-function addSampleData() {
-    if (pictures.length === 0) {
-        pictures.push({
-            id: 1,
-            src: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZmY2OWI0Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPvCfkqE8L3RleHQ+PC9zdmc+',
-            description: 'صورة تجريبية - أضف صورك الخاصة!',
-            date: new Date().toLocaleDateString('ar-EG')
-        });
-    }
+// Notification system
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+        <span class="notification-message">${message}</span>
+        <button class="notification-close">&times;</button>
+    `;
     
-    if (musicList.length === 0) {
-        musicList.push({
-            id: 1,
-            title: 'أغنية الحب الأولى',
-            link: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-            description: 'أضف الموسيقى المفضلة لديك!',
-            date: new Date().toLocaleDateString('ar-EG')
-        });
-    }
+    // Add to page
+    document.body.appendChild(notification);
     
-    if (todoList.length === 0) {
-        todoList.push({
-            id: 1,
-            text: 'أضف مهامك الأولى هنا!',
-            completed: false,
-            date: new Date().toLocaleDateString('ar-EG')
-        });
-    }
+    // Show notification
+    setTimeout(() => notification.classList.add('show'), 100);
     
-    savePictures();
-    saveMusic();
-    saveTodo();
-    loadData();
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    }, 5000);
+    
+    // Close button functionality
+    notification.querySelector('.notification-close').addEventListener('click', () => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    });
 }
 
-// Add sample data when page loads
-setTimeout(addSampleData, 1000);
+// Close lightbox
+document.getElementById('lightbox').addEventListener('click', function(e) {
+    if (e.target === this || e.target.classList.contains('close-lightbox')) {
+        this.classList.remove('active');
+    }
+});
 
 // Keyboard shortcuts
 document.addEventListener('keydown', function(e) {
@@ -387,19 +502,6 @@ document.addEventListener('keydown', function(e) {
             document.getElementById('addTodoBtn').click();
         }
     }
-});
-
-// Smooth scrolling for navigation
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-            target.scrollIntoView({
-                behavior: 'smooth'
-            });
-        }
-    });
 });
 
 // Add loading animation

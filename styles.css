@@ -539,6 +539,102 @@ body {
     50% { transform: scale(1.2); }
 }
 
+/* Notifications */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 10px;
+    color: var(--white);
+    font-weight: 500;
+    z-index: 3000;
+    transform: translateX(400px);
+    transition: transform 0.3s ease;
+    max-width: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.notification.show {
+    transform: translateX(0);
+}
+
+.notification-success {
+    background: linear-gradient(45deg, #4CAF50, #45a049);
+    border: 2px solid #4CAF50;
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+}
+
+.notification-error {
+    background: linear-gradient(45deg, #f44336, #da190b);
+    border: 2px solid #f44336;
+    box-shadow: 0 0 20px rgba(244, 67, 54, 0.5);
+}
+
+.notification-warning {
+    background: linear-gradient(45deg, #ff9800, #e68900);
+    border: 2px solid #ff9800;
+    box-shadow: 0 0 20px rgba(255, 152, 0, 0.5);
+}
+
+.notification-info {
+    background: linear-gradient(45deg, #2196F3, #1976D2);
+    border: 2px solid #2196F3;
+    box-shadow: 0 0 20px rgba(33, 150, 243, 0.5);
+}
+
+.notification-close {
+    background: none;
+    border: none;
+    color: var(--white);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.notification-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Picture placeholder */
+.picture-placeholder {
+    width: 100%;
+    height: 250px;
+    background: linear-gradient(45deg, var(--primary-pink), var(--secondary-pink));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    font-size: 3rem;
+    gap: 15px;
+}
+
+.picture-placeholder p {
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+/* Author info */
+.picture-author,
+.music-author,
+.todo-author {
+    color: var(--primary-pink);
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-bottom: 10px;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .hamburger {
