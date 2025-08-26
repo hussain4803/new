@@ -71,8 +71,8 @@
 ### تغيير الأسماء
 افتح ملف `index.html` وابحث عن:
 ```html
-<span class="name">أحمد</span>
-<span class="name">فاطمة</span>
+<span class="name">حسين</span>
+<span class="name">زينب</span>
 ```
 واستبدل الأسماء بأسمائك أنت وصديقك/صديقتك.
 
